@@ -19,7 +19,7 @@ def snap_and_save(cam, prefix, result_dir):
                                                         picture_time.microsecond)
         img_path = os.path.join(result_dir, filename)
         cam.snap_image(1000)
-        cam.save_image(img_path,0)
+        cam.save_image(img_path, 0)
         print(img_path)
     except IC_Exception as e:
         print(e.message)
@@ -31,7 +31,7 @@ def get_or_create_result_dir(dir_count, root_dir):
             cond = "day"
         else:
             cond = "night"
-        result_dir =  os.path.join(root_dir, str(a.year), str(a.month), str(a.day), cond, str(dir_count))
+        result_dir = os.path.join(root_dir, str(a.year), str(a.month), str(a.day), cond, str(dir_count))
         os.makedirs(result_dir, exist_ok=True)
         return result_dir
 
@@ -40,7 +40,6 @@ if __name__ == "__main__":
     ic = IC_ImagingControl()
     ic.init_library()
     root_dir = "result"
-
 
     id_cam = ic.get_device_by_file("IDCamera.xml")
     id_cam.start_live()
