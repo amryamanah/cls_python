@@ -1,0 +1,6 @@
+[submodule "submodule/addapy"]
+	path = submodule/addapy
+	url = https://github.com/amryfitra/addapy.git
+[submodule "submodule/icpy3"]
+	path = submodule/icpy3
+	url = https://github.com/amryfitra/icpy3.git
