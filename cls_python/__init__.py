@@ -2,10 +2,8 @@ __author__ = 'Owner'
 
 import os
 from .config_loader import ClsConfig
+from .cls_python import main_loop
 
-_root_folder = os.getcwd()
-_cls_config = ClsConfig(_root_folder)
-
-
+main_loop = main_loop
 
 

@@ -1,7 +1,7 @@
 __author__ = 'Owner'
 
 import os
-import configparser
+from configparser import BasicInterpolation, ConfigParser
 from datetime import datetime
 
 
@@ -37,7 +37,7 @@ class ClsConfig(object):
         return item
 
     def read_config(self):
-        parser = configparser.ConfigParser()
+        parser = ConfigParser()
         parser.read(self.cls_config_path)
         return parser
 
