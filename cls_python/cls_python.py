@@ -120,6 +120,20 @@ class ClsPython(object):
 
         return self.adda.get_distance(type, const_a, const_b, const_c)
 
+    def get_temperature(self):
+        return self.adda.get_temperature(self.cls_config.TEMPERATURE.getfloat("temp_const_a"),
+                                         self.cls_config.TEMPERATURE.getfloat("temp_const_b"))
+
+    def get_humidity(self):
+        return self.adda.get_humidity(self.cls_config.HUMIDITY.getfloat("hum_const_a"),
+                                      self.cls_config.HUMIDITY.getfloat("hum_const_b"))
+
+    def get_illumination(self):
+        return self.adda.get_illumination(self.cls_config.ILLUMINATION.getfloat("illumi_const_a"),
+                                          self.cls_config.ILLUMINATION.getfloat("illumi_const_b"),
+                                          self.cls_config.ILLUMINATION.getfloat("illumi_const_c"),
+                                          self.cls_config.ILLUMINATION.getfloat("illumi_const_d"))
+
     def set_led(self, type, distance):
         if type == "pl":
             const_a = self.cls_config.PL.getfloat("led_const_a")
@@ -182,10 +196,19 @@ def main_loop():
     with ClsPython() as cls:
 
         result_folder = cls.get_last_result_folder() + 1
+
         try:
             while True:
                 drinking_flag, drink_amount = cls.drinking_check()
+                #drinking_flag, drink_amount = 1,1
+                temp = cls.get_temperature()
+                humidity = cls.get_humidity()
+                illumination = cls.get_illumination()
+
                 print("Drinking flag = {}, Drinking amount = {}".format(drinking_flag, drink_amount))
+                print("Temp = {}, Humidity = {}, illumination = {}".format(
+                    temp, humidity, illumination
+                ))
                 if drinking_flag:
                     pl_distance = cls.get_distance("pl")
                     no_pldistance = cls.get_distance("nopl")
