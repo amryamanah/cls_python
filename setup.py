@@ -25,5 +25,10 @@ setup(
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Topic :: Utilities"
-    ]
+    ],
+    entry_points={
+        'console_scripts': [
+            'cls_python = cls_python:main_loop',
+        ]
+    }
 )

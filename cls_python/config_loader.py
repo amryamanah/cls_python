@@ -1,7 +1,7 @@
 __author__ = 'Owner'
 
 import os
-from configparser import BasicInterpolation, ConfigParser
+from configparser import ConfigParser
 from datetime import datetime
 
 
@@ -47,9 +47,9 @@ class ClsConfig(object):
         nighttime_limit_hour = self.MAIN.getint("nighttime_limit")
 
         if daytime_limit_hour < cur_hour < nighttime_limit_hour:
-            return "daytime"
-        else:
             return "nighttime"
+        else:
+            return "daytime"
 
     def get_id_cam_config_path(self):
         curr_period = self.get_day_period()

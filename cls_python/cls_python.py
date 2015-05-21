@@ -8,18 +8,6 @@ import decorator
 from IPython import embed
 
 
-def retry(howmany, *exception_types, **kwargs):
-    timeout = kwargs.get('timeout', 0.0) # seconds
-    @decorator.decorator
-    def tryIt(func, *fargs, **fkwargs):
-        for _ in range(howmany):
-            try: return func(*fargs, **fkwargs)
-            except exception_types or Exception:
-                if timeout is not None:
-                    sleep(timeout)
-    return tryIt
-
-
 class ClsPython(object):
     def __init__(self):
         self.ic = IC_ImagingControl()
@@ -199,8 +187,8 @@ def main_loop():
 
         try:
             while True:
-                drinking_flag, drink_amount = cls.drinking_check()
-                #drinking_flag, drink_amount = 1,1
+                #drinking_flag, drink_amount = cls.drinking_check()
+                drinking_flag, drink_amount = 1, 1
                 temp = cls.get_temperature()
                 humidity = cls.get_humidity()
                 illumination = cls.get_illumination()
@@ -219,8 +207,10 @@ def main_loop():
                     if head_flag:
                         cls.set_led("pl", pl_distance)
                         cls.set_led("nopl", no_pldistance)
+                        take_picture(cls, result_folder)
                     else:
                         cls.set_led("reset", 0)
+                        result_folder += 1
                 else:
                     sleep(1)
         except KeyboardInterrupt:
