@@ -1,16 +1,23 @@
-from time import sleep, clock
-import addapy
-from icpy3 import IC_ImagingControl, IC_Exception
-from datetime import datetime
-from .config_loader import ClsConfig
+import logging
 import os
-import decorator
+import time
+from datetime import datetime
+
+import addapy
+import icpy3
+
+from .config_loader import ClsConfig
+from .utils import PeriodicTask
+
 from IPython import embed
 
 
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("cls_python")
+
 class ClsPython(object):
     def __init__(self):
-        self.ic = IC_ImagingControl()
+        self.ic = icpy3.IC_ImagingControl()
         self.adda = addapy
         self.cls_config = ClsConfig(os.getcwd())
         self.id_cam = None
@@ -92,9 +99,8 @@ class ClsPython(object):
             img_path = os.path.join(result_dir, filename)
             cam.snap_image(1000)
             cam.save_image(img_path, 0)
-            print(img_path)
-        except IC_Exception as e:
-            print(e.message)
+        except icpy3.IC_Exception as e:
+            logger.critical(e.message)
 
     def get_distance(self, type):
         if type == "pl":
@@ -136,7 +142,9 @@ class ClsPython(object):
 
         return self.adda.set_led(type, distance, const_a, const_b, const_c)
 
-    def head_check(self, pl_distance, nopl_distance):
+    def head_check(self):
+        pl_distance = self.get_distance("pl")
+        nopl_distance = self.get_distance("nopl")
         cameragap = self.cls_config.MAIN.getfloat("cameragap")
         head_width = self.cls_config.MAIN.getfloat("headwidth")
 
@@ -151,33 +159,50 @@ class ClsPython(object):
             check drinking
         """
         flowmeter_threshold = self.cls_config.MAIN.getint("flowmeter_threshold")
-        sensorprev = self.adda.get_waterflow_signal()
-        short_sensorcount = 0
-        t3 = clock()
-        it = 0
-        while it < 300:
-            t2 = clock()
-            if t2-t3 > it:
-                sensor = self.adda.get_waterflow_signal()
-                if sensor == 1 and sensorprev == 0:
-                    short_sensorcount += 1
-                    sensorprev = 1
-                if sensor == 0 and sensorprev == 1:
-                    short_sensorcount += 1
-                    sensorprev = 0
-            it += 1
+        short_sensorcount = self.adda.get_waterflow_signal()
 
         if short_sensorcount > flowmeter_threshold:
             return 1, short_sensorcount
         else:
             return 0, short_sensorcount
 
+    def camera_session(self, img_folder):
+        nopl_count = 0
+        pl_count = 0
+        id_count = 0
+        timeout = time.time() + 10
+        logger.info("[START] camera session")
+        while time.time() < timeout:
+            pl_distance = self.get_distance("pl")
+            no_pldistance = self.get_distance("nopl")
+            self.set_led("pl", pl_distance)
+            self.set_led("nopl", no_pldistance)
 
-def take_picture(cls, result_folder):
-    result_dir = cls.get_or_create_result_dir(result_folder)
-    cls.snap_and_save("id", result_dir)
-    cls.snap_and_save("pl", result_dir)
-    cls.snap_and_save("nopl", result_dir)
+            if nopl_count < 5:
+                self.snap_and_save("nopl", img_folder)
+                logger.debug("[NOPL] snap and save {} image".format(nopl_count + 1))
+                self.snap_and_save("id", img_folder)
+                logger.debug("[ID] snap and save {} image".format(id_count + 1))
+                self.snap_and_save("pl", img_folder)
+                logger.debug("[PL] snap and save {} image".format(pl_count + 1))
+                time.sleep(0.5)
+                id_count += 1
+                pl_count += 1
+                nopl_count += 1
+            else:
+                self.snap_and_save("nopl", img_folder)
+                logger.debug("[NOPL] snap and save {} image".format(nopl_count + 1))
+                nopl_count += 1
+                time.sleep(1)
+        logger.info("[IMAGE] ID = {} img, PL = {} img, NOPL = {} img".format(id_count, pl_count, nopl_count))
+        logger.info("[START] camera session")
+
+
+def environmental_check(cls=None):
+    temp = cls.get_temperature()
+    humidity = cls.get_humidity()
+    illumination = cls.get_illumination()
+    logger.info("Temp = {}, Humidity = {}, illumination = {}".format(temp, humidity, illumination))
 
 
 def main_loop():
@@ -186,45 +211,28 @@ def main_loop():
         result_folder = cls.get_last_result_folder() + 1
 
         try:
-            while True:
-                #drinking_flag, drink_amount = cls.drinking_check()
-                drinking_flag, drink_amount = 1, 1
-                temp = cls.get_temperature()
-                humidity = cls.get_humidity()
-                illumination = cls.get_illumination()
+            env_thread = PeriodicTask(10, environmental_check, cls=cls)
+            env_thread.run()
 
-                print("Drinking flag = {}, Drinking amount = {}".format(drinking_flag, drink_amount))
-                print("Temp = {}, Humidity = {}, illumination = {}".format(
-                    temp, humidity, illumination
-                ))
-                if drinking_flag:
-                    pl_distance = cls.get_distance("pl")
-                    no_pldistance = cls.get_distance("nopl")
-                    head_flag = cls.head_check(pl_distance, no_pldistance)
-                    print("Head Flag = {}, pl_distance = {}, nopl_distance = {}".format(
-                        head_flag, pl_distance, no_pldistance
-                    ))
-                    if head_flag:
-                        cls.set_led("pl", pl_distance)
-                        cls.set_led("nopl", no_pldistance)
-                        take_picture(cls, result_folder)
-                    else:
-                        cls.set_led("reset", 0)
+            while True:
+                drinking_flag, drink_amount = cls.drinking_check()
+                head_flag = cls.head_check()
+                logger.info("Drinking flag = {}, Head Flag = {}, drink_amount = {}".format(drinking_flag, head_flag, drink_amount))
+                if drinking_flag and head_flag:
+                    img_dir = cls.get_or_create_result_dir(result_folder)
+
+                    cls.camera_session(img_dir)
+
+                while drinking_flag:
+                    drinking_flag, drink_amount = cls.drinking_check()
+                    head_flag = cls.head_check()
+                    if not drinking_flag and not head_flag:
                         result_folder += 1
-                else:
-                    sleep(1)
+                        break
+
+                time.sleep(1)
         except KeyboardInterrupt:
             pass
 
-
-            # for folder_num in range(1,4):
-            #     for photo_num in range(1,40):
-            #         result_dir = cls.get_or_create_result_dir(result_folder)
-            #         cls.snap_and_save("id", result_dir)
-            #         cls.snap_and_save("pl", result_dir)
-            #         cls.snap_and_save("nopl", result_dir)
-            #     result_folder += 1
-
-        #cls.adda.device_cleaning()
 
 

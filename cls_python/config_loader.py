@@ -46,7 +46,7 @@ class ClsConfig(object):
         daytime_limit_hour = self.MAIN.getint("daytime_limit")
         nighttime_limit_hour = self.MAIN.getint("nighttime_limit")
 
-        if daytime_limit_hour < cur_hour < nighttime_limit_hour:
+        if cur_hour > daytime_limit_hour or cur_hour < nighttime_limit_hour:
             return "nighttime"
         else:
             return "daytime"
