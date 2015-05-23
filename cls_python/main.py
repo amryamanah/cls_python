@@ -10,11 +10,10 @@ import icpy3
 from .config_loader import ClsConfig
 from .utils import PeriodicTask, write_csv_result, form_dct_result
 
-from IPython import embed
-
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("cls_python")
+
 
 class ClsPython(object):
     def __init__(self):
@@ -161,7 +160,7 @@ class ClsPython(object):
             check drinking
         """
         sensor = self.adda.get_waterflow_signal()
-        if sensor == 1 and sensor_prev ==0:
+        if sensor == 1 and sensor_prev == 0:
             self.total_waterflow_sensor += 1
             sensor_prev = 1
         if sensor == 0 and sensor_prev == 1:
@@ -175,7 +174,7 @@ class ClsPython(object):
         end = time.time() + 0.3
         while time.time() < end:
             sensor = self.adda.get_waterflow_signal()
-            if sensor == 1 and sensor_prev ==0:
+            if sensor == 1 and sensor_prev == 0:
                 short_sensorcount += 1
                 sensor_prev = 1
             if sensor == 0 and sensor_prev == 1:
