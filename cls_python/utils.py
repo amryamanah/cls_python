@@ -3,6 +3,21 @@ __author__ = 'Amry Fitra'
 import decorator
 import time
 import threading
+import csv
+import os
+
+def form_dct_result(header, data):
+    return dict(zip(header, data))
+
+def write_csv_result(csv_path, header, data):
+    if not os.path.exists(csv_path):
+        with open(csv_path, "w") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=header)
+            writer.writeheader()
+
+    with open(csv_path, "a") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=header)
+        writer.writerow(data)
 
 def retry(howmany, *exception_types, **kwargs):
     timeout = kwargs.get('timeout', 0.0) # seconds

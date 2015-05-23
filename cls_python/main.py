@@ -2,12 +2,13 @@ import logging
 import os
 import time
 from datetime import datetime
+from threading import Thread
 
 import addapy
 import icpy3
 
 from .config_loader import ClsConfig
-from .utils import PeriodicTask
+from .utils import PeriodicTask, write_csv_result, form_dct_result
 
 from IPython import embed
 
@@ -23,6 +24,7 @@ class ClsPython(object):
         self.id_cam = None
         self.pl_cam = None
         self.nopl_cam = None
+        self.total_waterflow_sensor = 0
         self.startup()
 
     def __enter__(self):
@@ -153,56 +155,113 @@ class ClsPython(object):
         else:
             return False
 
-    def drinking_check(self):  # todo check the drinking algorithm
+    def flow_check_onetime(self, sensor_prev):  # todo check the drinking algorithm
         # todo check the drinking algorithm
         """
             check drinking
         """
-        flowmeter_threshold = self.cls_config.MAIN.getint("flowmeter_threshold")
-        short_sensorcount = self.adda.get_waterflow_signal()
+        sensor = self.adda.get_waterflow_signal()
+        if sensor == 1 and sensor_prev ==0:
+            self.total_waterflow_sensor += 1
+            sensor_prev = 1
+        if sensor == 0 and sensor_prev == 1:
+            self.total_waterflow_sensor += 1
+            sensor_prev = 0
+        return sensor_prev
 
-        if short_sensorcount > flowmeter_threshold:
-            return 1, short_sensorcount
+    def flow_check(self):
+        sensor_prev = self.adda.get_waterflow_signal()
+        short_sensorcount = 0
+        end = time.time() + 0.3
+        while time.time() < end:
+            sensor = self.adda.get_waterflow_signal()
+            if sensor == 1 and sensor_prev ==0:
+                short_sensorcount += 1
+                sensor_prev = 1
+            if sensor == 0 and sensor_prev == 1:
+                short_sensorcount += 1
+                sensor_prev = 0
+
+        self.total_waterflow_sensor += short_sensorcount
+        if short_sensorcount > self.cls_config.MAIN.getint("flowmeter_threshold"):
+            return True
         else:
-            return 0, short_sensorcount
+            return False
 
     def camera_session(self, img_folder):
         nopl_count = 0
         pl_count = 0
         id_count = 0
-        timeout = time.time() + 10
+        timeout = time.time() + self.cls_config.MAIN.getint("image_capture_period")
         logger.info("[START] camera session")
         while time.time() < timeout:
-            pl_distance = self.get_distance("pl")
-            no_pldistance = self.get_distance("nopl")
-            self.set_led("pl", pl_distance)
-            self.set_led("nopl", no_pldistance)
-
+            if not self.head_check():
+                logger.debug("[STOP] Stop due to head flag = 0")
+                break
             if nopl_count < 5:
                 self.snap_and_save("nopl", img_folder)
                 logger.debug("[NOPL] snap and save {} image".format(nopl_count + 1))
-                self.snap_and_save("id", img_folder)
-                logger.debug("[ID] snap and save {} image".format(id_count + 1))
-                self.snap_and_save("pl", img_folder)
-                logger.debug("[PL] snap and save {} image".format(pl_count + 1))
-                time.sleep(0.5)
-                id_count += 1
-                pl_count += 1
+                time.sleep(0.2)
                 nopl_count += 1
             else:
                 self.snap_and_save("nopl", img_folder)
                 logger.debug("[NOPL] snap and save {} image".format(nopl_count + 1))
                 nopl_count += 1
-                time.sleep(1)
+
+                if id_count < 5:
+                    self.snap_and_save("id", img_folder)
+                    logger.debug("[ID] snap and save {} image".format(id_count + 1))
+                    id_count += 1
+
+                if pl_count < 5:
+                    self.snap_and_save("pl", img_folder)
+                    logger.debug("[PL] snap and save {} image".format(pl_count + 1))
+                    pl_count += 1
+
+                time.sleep(0.5)
+
         logger.info("[IMAGE] ID = {} img, PL = {} img, NOPL = {} img".format(id_count, pl_count, nopl_count))
-        logger.info("[START] camera session")
+        logger.info("[FINISH] camera session")
 
 
 def environmental_check(cls=None):
+    header = ["datetime", "temperature", "humidity", "illumination"]
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     temp = cls.get_temperature()
     humidity = cls.get_humidity()
     illumination = cls.get_illumination()
-    logger.info("Temp = {}, Humidity = {}, illumination = {}".format(temp, humidity, illumination))
+    logger.debug("Temp = {}, Humidity = {}, illumination = {}".format(temp, humidity, illumination))
+
+    env_log_path = cls.cls_config.MAIN["environmental_log_path"]
+    env_data = form_dct_result(header, [now, temp, humidity, illumination])
+    logger.debug(env_data)
+    write_csv_result(env_log_path, header, env_data)
+
+def flowmeter_log(controller, img_dir, timetaken, total_flowmeter):
+    header = ["folderpath", "timetaken", "total_flowmeter_signal"]
+    flowmeter_log_path = controller.cls_config.MAIN["flowmeter_log_path"]
+    flowmeter_data = form_dct_result(header, [img_dir, timetaken, total_flowmeter])
+    logger.debug(flowmeter_data)
+    write_csv_result(flowmeter_log_path, header, flowmeter_data)
+    pass
+
+def adjust_led(controller, stop):
+    logger.info("[START] adjust_led thread")
+    while True:
+        if stop():
+            controller.set_led("reset", 0)
+            break
+        pl_distance = controller.get_distance("pl")
+        no_pldistance = controller.get_distance("nopl")
+        controller.set_led("pl", pl_distance)
+        controller.set_led("nopl", no_pldistance)
+    logger.info("[FINISH] adjust_led thread")
+
+def flow_meter(controller, stop):
+    while True:
+        if stop():
+            break
+        controller.flow_check()
 
 
 def main_loop():
@@ -211,24 +270,50 @@ def main_loop():
         result_folder = cls.get_last_result_folder() + 1
 
         try:
-            env_thread = PeriodicTask(10, environmental_check, cls=cls)
+            env_thread = PeriodicTask(cls.cls_config.MAIN.getint("environmental_check_period"),
+                                      environmental_check, cls=cls)
             env_thread.run()
 
             while True:
-                drinking_flag, drink_amount = cls.drinking_check()
+
+                stop_led = False
+                stop_flowmeter = False
+
+                drinking_flag = cls.flow_check()
                 head_flag = cls.head_check()
-                logger.info("Drinking flag = {}, Head Flag = {}, drink_amount = {}".format(drinking_flag, head_flag, drink_amount))
+                print("Drinking flag = {}, Head Flag = {} cls.total_waterflow_sensor = {}".format(
+                    drinking_flag, head_flag, cls.total_waterflow_sensor
+                ))
                 if drinking_flag and head_flag:
+                    flowmeter_thread = Thread(target=flow_meter, args=(cls, lambda: stop_flowmeter))
+                    flowmeter_thread.start()
+
                     img_dir = cls.get_or_create_result_dir(result_folder)
+                    flowmeter_start_time = time.time()
+
+                    led_thread = Thread(target=adjust_led, args=(cls, lambda: stop_led))
+                    led_thread.start()
 
                     cls.camera_session(img_dir)
 
-                while drinking_flag:
-                    drinking_flag, drink_amount = cls.drinking_check()
-                    head_flag = cls.head_check()
-                    if not drinking_flag and not head_flag:
-                        result_folder += 1
-                        break
+                    stop_led = True
+                    led_thread.join()
+
+                    stop_flowmeter = True
+                    flowmeter_thread.join()
+
+                    while drinking_flag :
+                        logger.debug("Finish image acquisition section, waiting cattle to finish drinking")
+                        drinking_flag = cls.flow_check()
+                        if not drinking_flag:
+                            flowmeter_end_time = time.time()
+                            total_flowmeter_time = flowmeter_end_time - flowmeter_start_time
+                            flowmeter_log(cls, img_dir, total_flowmeter_time, cls.total_waterflow_sensor)
+                            logger.debug("Finish image acquisition section, "
+                                         "total_flowmeter_signal = {}".format(cls.total_waterflow_sensor))
+                            cls.total_waterflow_sensor = 0
+                            result_folder += 1
+                            break
 
                 time.sleep(1)
         except KeyboardInterrupt:

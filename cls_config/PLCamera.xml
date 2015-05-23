@@ -1,4 +1,4 @@
-<device_state libver="3.2" filemajor="1" fileminor="0">
+<device_state libver="3.3" filemajor="1" fileminor="0">
     <device name="DFK 23U445 1" base_name="DFK 23U445" unique_name="DFK 23U445 12510523">
         <videoformat>RGB32 (1280x960)</videoformat>
         <fps>30.000030000030002</fps>

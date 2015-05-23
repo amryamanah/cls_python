@@ -1,4 +1,4 @@
-<device_state libver="3.2" filemajor="1" fileminor="0">
+<device_state libver="3.3" filemajor="1" fileminor="0">
     <device name="DFK 42BUC03" base_name="DFK 42BUC03" unique_name="DFK 42BUC03 10310267">
         <videoformat>RGB32 (1280x960)</videoformat>
         <fps>25.099015616607517</fps>
