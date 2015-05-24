@@ -11,8 +11,7 @@ from .config_loader import ClsConfig
 from .utils import PeriodicTask, write_csv_result, form_dct_result
 
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("cls_python")
+logger = logging.getLogger(__name__)
 
 
 class ClsPython(object):
@@ -159,7 +158,7 @@ class ClsPython(object):
         """
             check drinking
         """
-        sensor = self.adda.get_waterflow_signal()
+        sensor = self.adda.get_flowmeter_signal()
         if sensor == 1 and sensor_prev == 0:
             self.total_waterflow_sensor += 1
             sensor_prev = 1
@@ -169,11 +168,11 @@ class ClsPython(object):
         return sensor_prev
 
     def flow_check(self):
-        sensor_prev = self.adda.get_waterflow_signal()
+        sensor_prev = self.adda.flow_check()
         short_sensorcount = 0
         end = time.time() + 0.3
         while time.time() < end:
-            sensor = self.adda.get_waterflow_signal()
+            sensor = self.adda.flow_check()
             if sensor == 1 and sensor_prev == 0:
                 short_sensorcount += 1
                 sensor_prev = 1
