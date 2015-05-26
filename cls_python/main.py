@@ -35,6 +35,7 @@ class ClsPython(object):
         self.ic.init_library()
         self.adda.Initialize_adda()
         self.adda.set_usb("on")
+        time.sleep(1)
         self.setup_camera()
 
     def cleanup(self):
@@ -168,18 +169,10 @@ class ClsPython(object):
         return sensor_prev
 
     def flow_check(self):
-        sensor_prev = self.adda.flow_check()
         short_sensorcount = 0
         end = time.time() + 0.3
         while time.time() < end:
-            sensor = self.adda.flow_check()
-            if sensor == 1 and sensor_prev == 0:
-                short_sensorcount += 1
-                sensor_prev = 1
-            if sensor == 0 and sensor_prev == 1:
-                short_sensorcount += 1
-                sensor_prev = 0
-
+            short_sensorcount += self.adda.flow_check()
         self.total_waterflow_sensor += short_sensorcount
         if short_sensorcount > self.cls_config.MAIN.getint("flowmeter_threshold"):
             return True
@@ -199,7 +192,7 @@ class ClsPython(object):
             if nopl_count < 5:
                 self.snap_and_save("nopl", img_folder)
                 logger.debug("[NOPL] snap and save {} image".format(nopl_count + 1))
-                time.sleep(0.2)
+                time.sleep(0.1)
                 nopl_count += 1
             else:
                 self.snap_and_save("nopl", img_folder)
@@ -273,7 +266,7 @@ def main_loop():
             env_thread.run()
 
             while True:
-
+                cls.total_waterflow_sensor = 0
                 stop_led = False
                 stop_flowmeter = False
 
@@ -309,7 +302,6 @@ def main_loop():
                             flowmeter_log(cls, img_dir, total_flowmeter_time, cls.total_waterflow_sensor)
                             logger.debug("Finish image acquisition section, "
                                          "total_flowmeter_signal = {}".format(cls.total_waterflow_sensor))
-                            cls.total_waterflow_sensor = 0
                             result_folder += 1
                             break
 
