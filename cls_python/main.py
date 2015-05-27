@@ -3,6 +3,7 @@ import os
 import time
 from datetime import datetime
 from threading import Thread
+from multiprocessing import Process
 
 import addapy
 import icpy3
@@ -12,7 +13,6 @@ from .utils import PeriodicTask, write_csv_result, form_dct_result
 
 
 logger = logging.getLogger(__name__)
-
 
 class ClsPython(object):
     def __init__(self):
@@ -34,6 +34,7 @@ class ClsPython(object):
     def startup(self):
         self.ic.init_library()
         self.adda.Initialize_adda()
+        self.set_calibration_value()
         self.adda.set_usb("on")
         time.sleep(1)
         self.setup_camera()
@@ -42,6 +43,29 @@ class ClsPython(object):
         self.ic.close_library()
         self.adda.Destroy_adda()
         self.adda.set_usb("off")
+
+    def set_calibration_value(self):
+        pl_distance_const_a = self.cls_config.PL.getfloat("distance_const_a")
+        pl_distance_const_b = self.cls_config.PL.getfloat("distance_const_b")
+        pl_distance_const_c = self.cls_config.PL.getfloat("distance_const_c")
+        nopl_distance_const_a = self.cls_config.NOPL.getfloat("distance_const_a")
+        nopl_distance_const_b = self.cls_config.NOPL.getfloat("distance_const_b")
+        nopl_distance_const_c = self.cls_config.NOPL.getfloat("distance_const_c")
+
+        pl_led_const_a = self.cls_config.PL.getfloat("led_const_a")
+        pl_led_const_b = self.cls_config.PL.getfloat("led_const_b")
+        pl_led_const_c = self.cls_config.PL.getfloat("led_const_c")
+
+        nopl_led_const_a = self.cls_config.NOPL.getfloat("led_const_a")
+        nopl_led_const_b = self.cls_config.NOPL.getfloat("led_const_b")
+        nopl_led_const_c = self.cls_config.NOPL.getfloat("led_const_c")
+
+        self.adda.set_calibration_value(
+            pl_distance_const_a, pl_distance_const_b, pl_distance_const_c,
+            nopl_distance_const_a, nopl_distance_const_b, nopl_distance_const_c,
+            pl_led_const_a, pl_led_const_b, pl_led_const_c,
+            nopl_led_const_a, nopl_led_const_b, nopl_led_const_c
+        )
 
     def setup_camera(self):
         self.id_cam = self.ic.get_device_by_file(self.cls_config.get_id_cam_config_path())
@@ -236,24 +260,6 @@ def flowmeter_log(controller, img_dir, timetaken, total_flowmeter):
     write_csv_result(flowmeter_log_path, header, flowmeter_data)
     pass
 
-def adjust_led(controller, stop):
-    logger.info("[START] adjust_led thread")
-    while True:
-        if stop():
-            controller.set_led("reset", 0)
-            break
-        pl_distance = controller.get_distance("pl")
-        no_pldistance = controller.get_distance("nopl")
-        controller.set_led("pl", pl_distance)
-        controller.set_led("nopl", no_pldistance)
-    logger.info("[FINISH] adjust_led thread")
-
-def flow_meter(controller, stop):
-    while True:
-        if stop():
-            break
-        controller.flow_check()
-
 
 def main_loop():
     with ClsPython() as cls:
@@ -267,8 +273,6 @@ def main_loop():
 
             while True:
                 cls.total_waterflow_sensor = 0
-                stop_led = False
-                stop_flowmeter = False
 
                 drinking_flag = cls.flow_check()
                 head_flag = cls.head_check()
@@ -276,32 +280,25 @@ def main_loop():
                     drinking_flag, head_flag, cls.total_waterflow_sensor
                 ))
                 if drinking_flag and head_flag:
-                    flowmeter_thread = Thread(target=flow_meter, args=(cls, lambda: stop_flowmeter))
-                    flowmeter_thread.start()
-
-                    img_dir = cls.get_or_create_result_dir(result_folder)
+                    cls.adda.flow_check_start()
+                    cls.adda.adjust_led_start()
                     flowmeter_start_time = time.time()
 
-                    led_thread = Thread(target=adjust_led, args=(cls, lambda: stop_led))
-                    led_thread.start()
+                    img_dir = cls.get_or_create_result_dir(result_folder)
 
                     cls.camera_session(img_dir)
 
-                    stop_led = True
-                    led_thread.join()
-
-                    stop_flowmeter = True
-                    flowmeter_thread.join()
-
+                    cls.adda.adjust_led_stop()
                     while drinking_flag :
                         logger.debug("Finish image acquisition section, waiting cattle to finish drinking")
                         drinking_flag = cls.flow_check()
                         if not drinking_flag:
+                            flowmeter_count = cls.adda.flow_check_stop()
                             flowmeter_end_time = time.time()
                             total_flowmeter_time = flowmeter_end_time - flowmeter_start_time
-                            flowmeter_log(cls, img_dir, total_flowmeter_time, cls.total_waterflow_sensor)
+                            flowmeter_log(cls, img_dir, total_flowmeter_time, flowmeter_count)
                             logger.debug("Finish image acquisition section, "
-                                         "total_flowmeter_signal = {}".format(cls.total_waterflow_sensor))
+                                         "total_flowmeter_signal = {}".format(flowmeter_count))
                             result_folder += 1
                             break
 
