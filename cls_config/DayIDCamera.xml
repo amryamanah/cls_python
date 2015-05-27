@@ -35,7 +35,7 @@
             </item>
             <item guid="{284C0E0D-010B-45BF-8291-09D90A459B28}" name="WhiteBalance">
                 <element guid="{B57D3001-0AC6-4819-A609-272A33140ACA}" name="Auto">
-                    <itf guid="{99B44940-BFE1-4083-ADA1-BE703F4B8E04}" value="0" />
+                    <itf guid="{99B44940-BFE1-4083-ADA1-BE703F4B8E04}" value="1" />
                 </element>
                 <element guid="{6519038B-1AD8-4E91-9021-66D64090CC85}" name="White Balance Red">
                     <itf guid="{99B44940-BFE1-4083-ADA1-BE703F4B8E03}" value="103" />

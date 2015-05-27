@@ -6,9 +6,13 @@ from threading import Thread, Timer
 
 import addapy
 import icpy3
+from icpy3.ic_exception import IC_Exception
+import shutil
 
 from .config_loader import ClsConfig
-from .utils import PeriodicTask, write_csv_result, form_dct_result, send_device_condition
+from .utils import \
+    PeriodicTask, write_csv_result, form_dct_result, \
+    send_device_condition, send_device_error, retry
 
 
 logger = logging.getLogger(__name__)
@@ -39,10 +43,15 @@ class ClsPython(object):
         time.sleep(1)
         self.setup_camera()
 
+    @retry(5, IC_Exception)
+    def recover(self):
+        self.cleanup()
+        time.sleep(3)
+        self.startup()
+
     def cleanup(self):
         self.ic.close_library()
         self.adda.Destroy_adda()
-        self.adda.set_usb("off")
 
     def setup_camera(self):
         self.id_cam = self.ic.get_device_by_file(self.cls_config.get_id_cam_config_path())
@@ -87,22 +96,22 @@ class ClsPython(object):
             cam = self.nopl_cam
             prefix = self.cls_config.NOPL["image_prefix"]
 
-        try:
-            picture_time = datetime.now()
 
-            filename = "{}_{}_{}_{}_{}_{}_{}_{}.bmp".format(prefix,
-                                                            picture_time.year,
-                                                            picture_time.month,
-                                                            picture_time.day,
-                                                            picture_time.hour,
-                                                            picture_time.minute,
-                                                            picture_time.second,
-                                                            picture_time.microsecond)
-            img_path = os.path.join(result_dir, filename)
-            cam.snap_image(1000)
-            cam.save_image(img_path, 0)
-        except icpy3.IC_Exception as e:
-            logger.critical(e.message)
+        picture_time = datetime.now()
+
+        filename = "{}_{}_{}_{}_{}_{}_{}_{}.bmp".format(prefix,
+                                                        picture_time.year,
+                                                        picture_time.month,
+                                                        picture_time.day,
+                                                        picture_time.hour,
+                                                        picture_time.minute,
+                                                        picture_time.second,
+                                                        picture_time.microsecond)
+        img_path = os.path.join(result_dir, filename)
+        cam.snap_image(1000)
+        cam.save_image(img_path, 0)
+
+
 
     def get_distance(self, type):
         if type == "pl":
@@ -174,6 +183,7 @@ class ClsPython(object):
             return False
 
     def camera_session(self, img_folder):
+        head_check_count = 0
         nopl_count = 0
         pl_count = 0
         id_count = 0
@@ -181,8 +191,12 @@ class ClsPython(object):
         logger.info("[START] camera session")
         while time.time() < timeout:
             if not self.head_check():
-                logger.debug("[STOP] Stop due to head flag = 0")
-                break
+                if head_check_count > 3:
+                    logger.debug("[STOP] Stop due to head flag = 0")
+                    break
+                else:
+                    head_check_count += 1
+
             if nopl_count < 5:
                 self.snap_and_save("nopl", img_folder)
                 logger.debug("[NOPL] snap and save {} image".format(nopl_count + 1))
@@ -257,60 +271,65 @@ def main_loop():
             env_thread = PeriodicTask(cls.cls_config.MAIN.getint("environmental_check_period"),
                                       environmental_check, cls=cls)
             env_thread.run()
+            device_checker_thread = PeriodicTask(cls.cls_config.MAIN.getint("environmental_check_period"),
+                                      send_device_condition, main_config=cls.cls_config.MAIN)
+            device_checker_thread.run()
 
             while True:
+                try:
+                    cls.total_waterflow_sensor = 0
+                    stop_led = False
+                    stop_flowmeter = False
 
-                cls.total_waterflow_sensor = 0
-                stop_led = False
-                stop_flowmeter = False
+                    drinking_flag = cls.flow_check()
+                    head_flag = cls.head_check()
+                    print("Drinking flag = {}, Head Flag = {}".format(drinking_flag, head_flag))
+                    if drinking_flag and head_flag:
+                        flowmeter_thread = Thread(target=flow_meter, args=(cls, lambda: stop_flowmeter))
+                        flowmeter_thread.start()
 
-                drinking_flag = cls.flow_check()
-                head_flag = cls.head_check()
-                print("Drinking flag = {}, Head Flag = {}".format(drinking_flag, head_flag))
-                if drinking_flag and head_flag:
-                    flowmeter_thread = Thread(target=flow_meter, args=(cls, lambda: stop_flowmeter))
-                    flowmeter_thread.start()
+                        led_thread = Thread(target=adjust_led, args=(cls, lambda: stop_led))
+                        led_thread.start()
 
-                    led_thread = Thread(target=adjust_led, args=(cls, lambda: stop_led))
-                    led_thread.start()
+                        flowmeter_start_time = time.time()
 
-                    flowmeter_start_time = time.time()
+                        img_dir = cls.get_or_create_result_dir(result_folder)
 
-                    img_dir = cls.get_or_create_result_dir(result_folder)
+                        cls.camera_session(img_dir)
 
-                    cls.camera_session(img_dir)
+                        stop_led = True
+                        led_thread.join()
 
+                        stop_flowmeter = True
+                        flowmeter_thread.join()
+
+                        while drinking_flag:
+                            logger.info("Finish image acquisition section, waiting cattle to finish drinking")
+                            drinking_flag = cls.flow_check()
+                            if not drinking_flag:
+                                flowmeter_end_time = time.time()
+                                total_flowmeter_time = flowmeter_end_time - flowmeter_start_time
+                                flowmeter_log(cls, img_dir, total_flowmeter_time, cls.total_waterflow_sensor)
+                                logger.info("Finish image acquisition section, "
+                                            "total_flowmeter_signal = {}".format(cls.total_waterflow_sensor))
+
+                                result_folder += 1
+                                break
+
+                    time.sleep(1)
+                except Exception as e:
+                    send_device_error(cls.cls_config.MAIN, "error", "camera", e.message)
                     stop_led = True
                     led_thread.join()
-
                     stop_flowmeter = True
                     flowmeter_thread.join()
-
-                    while drinking_flag:
-                        logger.info("Finish image acquisition section, waiting cattle to finish drinking")
-                        drinking_flag = cls.flow_check()
-                        if not drinking_flag:
-                            flowmeter_end_time = time.time()
-                            total_flowmeter_time = flowmeter_end_time - flowmeter_start_time
-                            flowmeter_log(cls, img_dir, total_flowmeter_time, cls.total_waterflow_sensor)
-                            logger.info("Finish image acquisition section, "
-                                        "total_flowmeter_signal = {}".format(cls.total_waterflow_sensor))
-                            condition_thread = Timer(5, send_device_condition, args=(
-                                cls.cls_config.MAIN["device_name"],
-                                cls.cls_config.MAIN["result_drive"],
-                                cls.cls_config.MAIN["cls_server_url"]
-                            ))
-                            condition_thread.start()
-                            # send_device_condition(cls.cls_config.MAIN["device_name"],
-                            #     cls.cls_config.MAIN["result_drive"],
-                            #     cls.cls_config.MAIN["cls_server_url"])
-
-                            result_folder += 1
-                            break
-
-                time.sleep(1)
+                    shutil.rmtree(img_dir)
+                    logger.debug(e.message)
+                    cls.recover()
         except KeyboardInterrupt:
             pass
+
+
 
 
 
