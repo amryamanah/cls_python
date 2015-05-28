@@ -157,9 +157,10 @@ class ClsPython(object):
         nopl_distance = self.get_distance("nopl")
         cameragap = self.cls_config.MAIN.getfloat("cameragap")
         head_width = self.cls_config.MAIN.getfloat("headwidth")
-        logger.debug("pl_distance = {}, nopl_distance = {}, cameragap - pl_distance = {}".format(
-            pl_distance, nopl_distance, cameragap - pl_distance))
-        if (cameragap - pl_distance) > head_width and nopl_distance > 0:
+        checker = cameragap - pl_distance - nopl_distance
+        logger.debug("head_width = {:4.3f}, cameragap = {:4.3f}, pl_distance = {:4.3f}, nopl_distance = {:4.3f}, checker = {:4.3f}".format(
+            head_width, cameragap, pl_distance, nopl_distance, checker))
+        if checker > head_width:
             return True
         else:
             return False
