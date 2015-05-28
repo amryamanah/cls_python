@@ -168,11 +168,11 @@ class ClsPython(object):
         return sensor_prev
 
     def flow_check(self):
-        sensor_prev = self.adda.flow_check()
+        sensor_prev = self.adda.get_flowmeter_signal()
         short_sensorcount = 0
-        end = time.time() + 0.3
+        end = time.time() + 1
         while time.time() < end:
-            sensor = self.adda.flow_check()
+            sensor = self.adda.get_flowmeter_signal()
             if sensor == 1 and sensor_prev == 0:
                 short_sensorcount += 1
                 sensor_prev = 1
@@ -274,6 +274,7 @@ def main_loop():
 
             while True:
 
+                cls.total_waterflow_sensor = 0
                 stop_led = False
                 stop_flowmeter = False
 
@@ -309,7 +310,7 @@ def main_loop():
                             flowmeter_log(cls, img_dir, total_flowmeter_time, cls.total_waterflow_sensor)
                             logger.debug("Finish image acquisition section, "
                                          "total_flowmeter_signal = {}".format(cls.total_waterflow_sensor))
-                            cls.total_waterflow_sensor = 0
+
                             result_folder += 1
                             break
 
