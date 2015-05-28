@@ -2,13 +2,13 @@ import logging
 import os
 import time
 from datetime import datetime
-from threading import Thread
+from threading import Thread, Timer
 
 import addapy
 import icpy3
 
 from .config_loader import ClsConfig
-from .utils import PeriodicTask, write_csv_result, form_dct_result
+from .utils import PeriodicTask, write_csv_result, form_dct_result, send_device_condition
 
 
 logger = logging.getLogger(__name__)
@@ -215,7 +215,7 @@ def environmental_check(cls=None):
     temp = cls.get_temperature()
     humidity = cls.get_humidity()
     illumination = cls.get_illumination()
-    logger.debug("Temp = {}, Humidity = {}, illumination = {}".format(temp, humidity, illumination))
+    logger.info("Temp = {}, Humidity = {}, illumination = {}".format(temp, humidity, illumination))
 
     env_log_path = cls.cls_config.MAIN["environmental_log_path"]
     env_data = form_dct_result(header, [now, temp, humidity, illumination])
@@ -295,6 +295,15 @@ def main_loop():
                             flowmeter_log(cls, img_dir, total_flowmeter_time, cls.total_waterflow_sensor)
                             logger.info("Finish image acquisition section, "
                                         "total_flowmeter_signal = {}".format(cls.total_waterflow_sensor))
+                            condition_thread = Timer(5, send_device_condition, args=(
+                                cls.cls_config.MAIN["device_name"],
+                                cls.cls_config.MAIN["result_drive"],
+                                cls.cls_config.MAIN["cls_server_url"]
+                            ))
+                            condition_thread.start()
+                            # send_device_condition(cls.cls_config.MAIN["device_name"],
+                            #     cls.cls_config.MAIN["result_drive"],
+                            #     cls.cls_config.MAIN["cls_server_url"])
 
                             result_folder += 1
                             break
