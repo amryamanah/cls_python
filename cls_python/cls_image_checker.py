@@ -30,4 +30,5 @@ def image_checker():
 
         cls.snap_and_save("pl")
         cls.snap_and_save("nopl")
-        time.sleep(0.2)
+        cls.snap_and_save("id")
+
