@@ -130,10 +130,7 @@ class ClsPython(object):
             const_b = self.cls_config.NOPL.getfloat("distance_const_b")
             const_c = self.cls_config.NOPL.getfloat("distance_const_c")
 
-        distance = self.adda.get_distance(type, const_a, const_b, const_c)
-        decimal.getcontext().prec = 2
-
-        return decimal.Decimal(distance)
+        return self.adda.get_distance(type, const_a, const_b, const_c)
 
     def get_temperature(self):
         return self.adda.get_temperature(self.cls_config.TEMPERATURE.getfloat("temp_const_a"),
