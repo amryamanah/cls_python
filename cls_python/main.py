@@ -8,6 +8,7 @@ import addapy
 import icpy3
 from icpy3.ic_exception import IC_Exception
 import shutil
+import decimal
 
 from .config_loader import ClsConfig
 from .utils import \
@@ -25,6 +26,11 @@ class ClsPython(object):
         self.id_cam = None
         self.pl_cam = None
         self.nopl_cam = None
+
+        self.pl_display = self.cls_config.PL.getboolean("display", False)
+        self.nopl_display = self.cls_config.NOPL.getboolean("display", False)
+        self.id_display = self.cls_config.ID.getboolean("display", False)
+
         self.curr_sensor = 0
         self.total_waterflow_sensor = 0
         self.startup()
@@ -58,9 +64,9 @@ class ClsPython(object):
         self.pl_cam = self.ic.get_device_by_file(self.cls_config.pl_cam_config_path)
         self.nopl_cam = self.ic.get_device_by_file(self.cls_config.nopl_cam_config_path)
 
-        self.id_cam.start_live()
-        self.pl_cam.start_live()
-        self.nopl_cam.start_live()
+        self.id_cam.start_live(show_display=self.id_display)
+        self.pl_cam.start_live(show_display=self.pl_display)
+        self.nopl_cam.start_live(show_display=self.nopl_display)
 
     def stop_camera(self):
         self.id_cam.stop_live()
@@ -124,7 +130,10 @@ class ClsPython(object):
             const_b = self.cls_config.NOPL.getfloat("distance_const_b")
             const_c = self.cls_config.NOPL.getfloat("distance_const_c")
 
-        return self.adda.get_distance(type, const_a, const_b, const_c)
+        distance = self.adda.get_distance(type, const_a, const_b, const_c)
+        decimal.getcontext().prec = 2
+
+        return decimal.Decimal(distance)
 
     def get_temperature(self):
         return self.adda.get_temperature(self.cls_config.TEMPERATURE.getfloat("temp_const_a"),
