@@ -79,8 +79,8 @@ class ClsPython(object):
     def get_or_create_result_dir(self, dir_count=""):
         a = datetime.now()
         cond = self.cls_config.get_day_period()
-        print(cond)
-        print(self.cls_config.MAIN["result_dir"])
+        logger.debug("Day condition = {}".format(cond))
+        logger.debug("Root result directory = {}".format(self.cls_config.MAIN["result_dir"]))
         result_dir = os.path.join(self.cls_config.MAIN["result_dir"], str(a.year), str(a.month),
                                   str(a.day), cond, str(dir_count))
         os.makedirs(result_dir, exist_ok=True)
