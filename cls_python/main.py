@@ -69,7 +69,8 @@ class ClsPython(object):
 
     def get_last_result_folder(self):
         result_dir = self.get_or_create_result_dir()
-        dir_list = os.listdir(result_dir)
+        dir_list = sorted([int(x) for x in os.listdir(result_dir)])
+
         if len(dir_list) > 0:
             return int(dir_list.pop())
         else:
@@ -266,7 +267,7 @@ def flow_meter(controller, stop):
 def main_loop():
     with ClsPython() as cls:
 
-        result_folder = cls.get_last_result_folder() + 1
+        
 
         try:
             env_thread = PeriodicTask(cls.cls_config.MAIN.getint("environmental_check_period"),
@@ -277,14 +278,16 @@ def main_loop():
             device_checker_thread.run()
 
             while True:
+
                 try:
+                    result_folder = cls.get_last_result_folder() + 1
                     cls.total_waterflow_sensor = 0
                     stop_led = False
                     stop_flowmeter = False
 
                     drinking_flag = cls.flow_check()
                     head_flag = cls.head_check()
-                    print("Drinking flag = {}, Head Flag = {}".format(drinking_flag, head_flag))
+                    print("result_folder_number = {} Drinking flag = {}, Head Flag = {}".format(result_folder, drinking_flag, head_flag))
                     if drinking_flag and head_flag:
                         flowmeter_thread = Thread(target=flow_meter, args=(cls, lambda: stop_flowmeter))
                         flowmeter_thread.start()
