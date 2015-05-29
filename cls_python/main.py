@@ -288,6 +288,7 @@ def main_loop():
                     cls.total_waterflow_sensor = 0
                     stop_led = False
                     stop_flowmeter = False
+                    drink_count = 0
 
                     drinking_flag = cls.flow_check()
                     head_flag = cls.head_check()
@@ -311,10 +312,13 @@ def main_loop():
                         stop_flowmeter = True
                         flowmeter_thread.join()
 
-                        while drinking_flag:
+                        while True:
                             logger.info("Finish image acquisition section, waiting cattle to finish drinking")
                             drinking_flag = cls.flow_check()
                             if not drinking_flag:
+                                drink_count += 1
+                                print(drink_count)
+                            if drink_count > 5:
                                 flowmeter_end_time = time.time()
                                 total_flowmeter_time = flowmeter_end_time - flowmeter_start_time
                                 flowmeter_log(cls, img_dir, total_flowmeter_time, cls.total_waterflow_sensor)
