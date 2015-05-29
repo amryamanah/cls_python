@@ -86,7 +86,7 @@ class ClsPython(object):
         os.makedirs(result_dir, exist_ok=True)
         return result_dir
 
-    def snap_and_save(self, cam_type, result_dir):
+    def snap_and_save(self, cam_type, result_dir=""):
         if cam_type == "id":
             cam = self.id_cam
             prefix = self.cls_config.ID["image_prefix"]
@@ -266,8 +266,6 @@ def flow_meter(controller, stop):
 
 def main_loop():
     with ClsPython() as cls:
-
-        
 
         try:
             env_thread = PeriodicTask(cls.cls_config.MAIN.getint("environmental_check_period"),

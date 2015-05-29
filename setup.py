@@ -29,6 +29,7 @@ setup(
     entry_points={
         'console_scripts': [
             'cls_python = cls_python:main_loop',
+            'cls_image_checker = cls_python:image_checker'
         ]
     }
 )

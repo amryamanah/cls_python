@@ -11,7 +11,9 @@ logging.config.fileConfig(cls_config.logging_config_path)
 logger = logging.getLogger(__package__)
 
 from .main import main_loop
+from .cls_image_checker import image_checker
 
 main_loop = main_loop
 
 
+image_checker = image_checker
