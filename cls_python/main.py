@@ -272,7 +272,7 @@ def flow_meter(controller, stop):
 
 def main_loop():
     with ClsPython() as cls:
-
+        cls.get_last_result_folder()
         try:
             env_thread = PeriodicTask(cls.cls_config.MAIN.getint("environmental_check_period"),
                                       environmental_check, cls=cls)

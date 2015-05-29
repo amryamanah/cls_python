@@ -16,25 +16,18 @@ def adjust_led(controller, stop):
         pl_distance = controller.get_distance("pl")
         no_pldistance = controller.get_distance("nopl")
 
-        print("dist = {} ".format(no_pldistance))
-
         controller.set_led("pl", pl_distance)
         controller.set_led("nopl", no_pldistance)
     logger.info("[FINISH] adjust_led thread")
 
 def image_checker():
     with ClsPython() as cls:
-        stop_led = False
-        timeout = time.time() + 10
-        led_thread = Thread(target=adjust_led, args=(cls, lambda: stop_led))
-        led_thread.start()
+        pl_distance = cls.get_distance("pl")
+        no_pldistance = cls.get_distance("nopl")
 
-        while time.time() < timeout:
-            cls.snap_and_save("pl")
-            cls.snap_and_save("nopl")
-        stop_led = True
-        led_thread.join()
+        cls.set_led("pl", pl_distance)
+        cls.set_led("nopl", no_pldistance)
 
-
-
-
+        cls.snap_and_save("pl")
+        cls.snap_and_save("nopl")
+        time.sleep(0.2)
