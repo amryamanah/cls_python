@@ -244,6 +244,12 @@ def environmental_check(cls=None):
     logger.debug(env_data)
     write_csv_result(env_log_path, header, env_data)
 
+def device_cleaner(cls=None):
+    logger.info("[START] CLEANING Device")
+    cls.adda.device_cleaning()
+    logger.info("[FINISH] CLEANING Device")
+
+
 def flowmeter_log(controller, img_dir, timetaken, total_flowmeter):
     header = ["folderpath", "timetaken", "total_flowmeter_signal"]
     flowmeter_log_path = controller.cls_config.MAIN["flowmeter_log_path"]
@@ -280,6 +286,10 @@ def main_loop():
             device_checker_thread = PeriodicTask(cls.cls_config.MAIN.getint("environmental_check_period"),
                                       send_device_condition, main_config=cls.cls_config.MAIN)
             device_checker_thread.run()
+
+            device_cleaner_thread = PeriodicTask(cls.cls_config.MAIN.getint("cleaning_period"),
+                                      device_cleaner, cls=cls)
+            device_cleaner_thread.run()
 
             while True:
 
