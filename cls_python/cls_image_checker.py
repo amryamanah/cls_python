@@ -22,13 +22,21 @@ def adjust_led(controller, stop):
 
 def image_checker():
     with ClsPython() as cls:
-        pl_distance = cls.get_distance("pl")
-        no_pldistance = cls.get_distance("nopl")
+        pl_timeout = time.time() + 2
 
-        cls.set_led("pl", pl_distance)
-        cls.set_led("nopl", no_pldistance)
+        while time.time() < pl_timeout:
+            pl_distance = cls.get_distance("pl")
+            cls.set_led("pl", pl_distance)
+            cls.snap_and_save("pl")
 
-        cls.snap_and_save("pl")
-        cls.snap_and_save("nopl")
+        cls.set_led("reset", 0)
+        nopl_timeout = time.time() + 2
+
+        while time.time() < nopl_timeout:
+            no_pldistance = cls.get_distance("nopl")
+            cls.set_led("nopl", no_pldistance)
+            cls.snap_and_save("nopl")
+
         cls.snap_and_save("id")
+        cls.set_led("reset", 0)
 
