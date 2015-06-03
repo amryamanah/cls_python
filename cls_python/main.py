@@ -103,7 +103,6 @@ class ClsPython(object):
             cam = self.nopl_cam
             prefix = self.cls_config.NOPL["image_prefix"]
 
-
         picture_time = datetime.now()
 
         filename = "{}_{}_{}_{}_{}_{}_{}_{}.bmp".format(prefix,
@@ -117,8 +116,6 @@ class ClsPython(object):
         img_path = os.path.join(result_dir, filename)
         cam.snap_image(1000)
         cam.save_image(img_path, 0)
-
-
 
     def get_distance(self, type):
         if type == "pl":
@@ -134,11 +131,13 @@ class ClsPython(object):
 
     def get_temperature(self):
         return self.adda.get_temperature(self.cls_config.TEMPERATURE.getfloat("temp_const_a"),
-                                         self.cls_config.TEMPERATURE.getfloat("temp_const_b"))
+                                         self.cls_config.TEMPERATURE.getfloat("temp_const_b"),
+                                         self.cls_config.TEMPERATURE.getfloat("temp_const_c"))
 
     def get_humidity(self):
         return self.adda.get_humidity(self.cls_config.HUMIDITY.getfloat("hum_const_a"),
-                                      self.cls_config.HUMIDITY.getfloat("hum_const_b"))
+                                      self.cls_config.HUMIDITY.getfloat("hum_const_b"),
+                                      self.cls_config.HUMIDITY.getfloat("hum_const_c"))
 
     def get_illumination(self):
         return self.adda.get_illumination(self.cls_config.ILLUMINATION.getfloat("illumi_const_a"),
