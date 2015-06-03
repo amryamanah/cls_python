@@ -134,10 +134,18 @@ class ClsPython(object):
                                          self.cls_config.TEMPERATURE.getfloat("temp_const_b"),
                                          self.cls_config.TEMPERATURE.getfloat("temp_const_c"))
 
-    def get_humidity(self):
-        return self.adda.get_humidity(self.cls_config.HUMIDITY.getfloat("hum_const_a"),
-                                      self.cls_config.HUMIDITY.getfloat("hum_const_b"),
-                                      self.cls_config.HUMIDITY.getfloat("hum_const_c"))
+    def get_humidity(self, temp=0):
+        if self.cls_config.TEMPERATURE.getboolean("with_temp"):
+            return self.adda.get_humidity_with_temp(
+                temp,
+                self.cls_config.HUMIDITY.getfloat("hum_const_a"),
+                self.cls_config.HUMIDITY.getfloat("hum_const_b"),
+                self.cls_config.HUMIDITY.getfloat("hum_const_c")
+            )
+        else:
+            return self.adda.get_humidity(self.cls_config.HUMIDITY.getfloat("hum_const_a"),
+                                          self.cls_config.HUMIDITY.getfloat("hum_const_b"),
+                                          self.cls_config.HUMIDITY.getfloat("hum_const_c"))
 
     def get_illumination(self):
         return self.adda.get_illumination(self.cls_config.ILLUMINATION.getfloat("illumi_const_a"),
@@ -234,7 +242,10 @@ def environmental_check(cls=None):
     header = ["datetime", "temperature", "humidity", "illumination"]
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     temp = cls.get_temperature()
-    humidity = cls.get_humidity()
+    if cls.cls_config.TEMPERATURE.getboolean("with_temp"):
+        humidity = cls.get_humidity(temp=temp)
+    else:
+        humidity = cls.get_humidity()
     illumination = cls.get_illumination()
     logger.info("Temp = {}, Humidity = {}, illumination = {}".format(temp, humidity, illumination))
 
