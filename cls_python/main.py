@@ -93,26 +93,33 @@ class ClsPython(object):
         return result_dir
 
     def snap_and_save(self, cam_type, result_dir=""):
+        pl_distance = self.get_distance("pl")
+        no_pldistance = self.get_distance("nopl")
         if cam_type == "id":
             cam = self.id_cam
             prefix = self.cls_config.ID["image_prefix"]
         elif cam_type == "pl":
+            pl_distance = self.get_distance("pl")
+            self.set_led("pl", pl_distance)
             cam = self.pl_cam
             prefix = self.cls_config.PL["image_prefix"]
         elif cam_type == "nopl":
+            no_pldistance = self.get_distance("nopl")
+            self.set_led("nopl", no_pldistance)
             cam = self.nopl_cam
             prefix = self.cls_config.NOPL["image_prefix"]
 
         picture_time = datetime.now()
 
-        filename = "{}_{}_{}_{}_{}_{}_{}_{}.bmp".format(prefix,
+        filename = "{}_{}_{}_{}_{}_{}_{}_{}_nopl{}cm_pl{}cm.bmp".format(prefix,
                                                         picture_time.year,
                                                         picture_time.month,
                                                         picture_time.day,
                                                         picture_time.hour,
                                                         picture_time.minute,
                                                         picture_time.second,
-                                                        picture_time.microsecond)
+                                                        picture_time.microsecond,
+                                                        no_pldistance, pl_distance)
         img_path = os.path.join(result_dir, filename)
         cam.snap_image(1000)
         cam.save_image(img_path, 0)
@@ -215,7 +222,7 @@ class ClsPython(object):
             if nopl_count < 5:
                 self.snap_and_save("nopl", img_folder)
                 logger.debug("[NOPL] snap and save {} image".format(nopl_count + 1))
-                time.sleep(0.1)
+                #time.sleep(0.1)
                 nopl_count += 1
             else:
                 self.snap_and_save("nopl", img_folder)
@@ -267,18 +274,6 @@ def flowmeter_log(controller, img_dir, timetaken, total_flowmeter):
     logger.debug(flowmeter_data)
     write_csv_result(flowmeter_log_path, header, flowmeter_data)
 
-def adjust_led(controller, stop):
-    logger.info("[START] adjust_led thread")
-    while True:
-        if stop():
-            controller.set_led("reset", 0)
-            break
-        pl_distance = controller.get_distance("pl")
-        no_pldistance = controller.get_distance("nopl")
-        controller.set_led("pl", pl_distance)
-        controller.set_led("nopl", no_pldistance)
-    logger.info("[FINISH] adjust_led thread")
-
 def flow_meter(controller, stop):
     while True:
         if stop():
@@ -306,7 +301,6 @@ def main_loop():
                 try:
                     result_folder = cls.get_last_result_folder() + 1
                     cls.total_waterflow_sensor = 0
-                    stop_led = False
                     stop_flowmeter = False
                     drink_count = 0
 
@@ -317,17 +311,13 @@ def main_loop():
                         flowmeter_thread = Thread(target=flow_meter, args=(cls, lambda: stop_flowmeter))
                         flowmeter_thread.start()
 
-                        led_thread = Thread(target=adjust_led, args=(cls, lambda: stop_led))
-                        led_thread.start()
-
                         flowmeter_start_time = time.time()
 
                         img_dir = cls.get_or_create_result_dir(result_folder)
 
                         cls.camera_session(img_dir)
 
-                        stop_led = True
-                        led_thread.join()
+                        cls.set_led("reset", 0)
 
                         stop_flowmeter = True
                         flowmeter_thread.join()
@@ -351,8 +341,7 @@ def main_loop():
                     time.sleep(1)
                 except Exception as e:
                     send_device_error(cls.cls_config.MAIN, "error", "camera", e.message)
-                    stop_led = True
-                    led_thread.join()
+                    cls.set_led("reset", 0)
                     stop_flowmeter = True
                     flowmeter_thread.join()
                     shutil.rmtree(img_dir)
