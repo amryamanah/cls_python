@@ -1,6 +1,7 @@
 __author__ = 'Owner'
 
 import os
+import json
 import logging
 import logging.config
 from .config_loader import ClsConfig
@@ -8,7 +9,9 @@ from .config_loader import ClsConfig
 
 try:
     cls_config = ClsConfig(os.getcwd())
-    logging.config.fileConfig(cls_config.logging_config_path)
+    with open(cls_config.logging_config_path, 'rt') as f:
+    	logger_config = json.load(f)
+    logging.config.dictConfig(logger_config)
 except AssertionError as e:
     print(e)
 

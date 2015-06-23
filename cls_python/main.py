@@ -340,12 +340,12 @@ def main_loop():
 
                     time.sleep(1)
                 except Exception as e:
+                    logger.error("{}".format(e.message), exc_info=True)
                     send_device_error(cls.cls_config.MAIN, "error", "camera", e.message)
                     cls.set_led("reset", 0)
                     stop_flowmeter = True
                     flowmeter_thread.join()
                     shutil.rmtree(img_dir)
-                    logger.debug(e.message)
                     cls.recover()
         except KeyboardInterrupt:
             pass

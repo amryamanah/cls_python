@@ -18,7 +18,7 @@ class ClsConfig(object):
             "config_folder ({}) does not exist".format(self.config_folder_path)
 
         self.cls_config_path = self._set_config_item("cls_python.ini")
-        self.logging_config_path = self._set_config_item("cls_logging.ini")
+        self.logging_config_path = self._set_config_item("logging.json")
         self.pl_cam_config_path = self._set_config_item("PLCamera.xml")
         self.nopl_cam_config_path = self._set_config_item("NOPLCamera.xml")
         self.day_id_cam_config_path = self._set_config_item("DayIDCamera.xml")
