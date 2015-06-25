@@ -2,9 +2,11 @@
 
 __author__ = 'amryfitra'
 
+import os
 import addapy
 from IPython import embed
 import time
+from .config_loader import ClsConfig
 
 def print_header():
     print("""
@@ -16,11 +18,39 @@ Available test mode:
 3. Temp, humidity, and illumination
 4. Get distance voltage
 5. Set led output (1 - 10 V))
-6. USB ON/OFF/RESET""")
+6. USB ON/OFF/RESET
+7. Auto adjustment of distance using cls_config.ini value""")
+
+def get_distance(cls_config, type):
+    if type == "pl":
+        const_a = cls_config.PL.getfloat("distance_const_a")
+        const_b = cls_config.PL.getfloat("distance_const_b")
+        const_c = cls_config.PL.getfloat("distance_const_c")
+    elif type == "nopl":
+        const_a = cls_config.NOPL.getfloat("distance_const_a")
+        const_b = cls_config.NOPL.getfloat("distance_const_b")
+        const_c = cls_config.NOPL.getfloat("distance_const_c")
+
+    return addapy.get_distance(type, const_a, const_b, const_c)
+
+def set_led( cls_config, kind, distance):
+    if kind == "pl":
+        const_a = cls_config.PL.getfloat("led_const_a")
+        const_b = cls_config.PL.getfloat("led_const_b")
+        const_c = cls_config.PL.getfloat("led_const_c")
+    elif kind == "nopl":
+        const_a = cls_config.NOPL.getfloat("led_const_a")
+        const_b = cls_config.NOPL.getfloat("led_const_b")
+        const_c = cls_config.NOPL.getfloat("led_const_c")
+    elif kind == "reset":
+        return addapy.set_led(kind, distance, 0, 0, 0)
+    return addapy.set_led(kind, distance, const_a, const_b, const_c)
+
 
 def main_calibrator():
 
     try:
+        cls_config = ClsConfig(os.getcwd())
         board = addapy.Initialize_adda()
         if not board:
             raise("Board not initialize")
@@ -109,6 +139,21 @@ def main_calibrator():
                         addapy.set_usb("reset")
                     else:
                         print("You put unsupported usb state")
+                elif test_mode == 7:
+
+                    while True:
+                        pl_distance = get_distance(cls_config, "pl")
+                        set_led(cls_config, "pl", pl_distance)
+
+                        nopl_distance = get_distance(cls_config, "nopl")
+                        set_led(cls_config, "nopl", nopl_distance)
+
+                        if pl_distance < 0:
+                            embed()
+                        if nopl_distance < 0:
+                            embed()
+
+                        print("pl distance = {} nopl distance = {}".format(pl_distance, nopl_distance))
                 else:
                     print("Test mode {} unavailable".format(test_mode))
             except KeyboardInterrupt:
