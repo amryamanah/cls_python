@@ -210,7 +210,11 @@ class ClsPython(object):
         pl_count = 0
         id_count = 0
         timeout = time.time() + self.cls_config.MAIN.getint("image_capture_period")
+        onesecond_timeout = time.time() + 1
         logger.info("[START] camera session")
+        no_pldistance = self.get_distance("nopl")
+        pl_distance = self.get_distance("nopl")
+        self.set_led("nopl", no_pldistance)
         while time.time() < timeout:
             if not self.head_check():
                 if head_check_count > 3:
@@ -219,8 +223,22 @@ class ClsPython(object):
                 else:
                     head_check_count += 1
 
-            if nopl_count < 5:
-                self.snap_and_save("nopl", img_folder)
+            if time.time() <= onesecond_timeout:
+
+                picture_time = datetime.now()
+
+                filename = "{}_{}_{}_{}_{}_{}_{}_{}_nopl{}cm_pl{}cm.bmp".format(self.cls_config.NOPL["image_prefix"],
+                                                                                picture_time.year,
+                                                                                picture_time.month,
+                                                                                picture_time.day,
+                                                                                picture_time.hour,
+                                                                                picture_time.minute,
+                                                                                picture_time.second,
+                                                                                picture_time.microsecond,
+                                                                                no_pldistance, pl_distance)
+                img_path = os.path.join(img_folder, filename)
+                self.nopl_cam.snap_image(1000)
+                self.nopl_cam.save_image(img_path, 0)
                 logger.debug("[NOPL] snap and save {} image".format(nopl_count + 1))
                 #time.sleep(0.1)
                 nopl_count += 1
